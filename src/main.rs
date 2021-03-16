@@ -10,8 +10,8 @@ fn main() {
     let mut result = build_crate_wasm32(crate_dep).unwrap();
     println!("{} --> {}", crate_dep, result);
 
-    let mut crate_dep =     r#"rust-crypto-wasm = "^0.2""#;
-    let mut result = build_crate_wasm32(crate_dep).unwrap();
+    crate_dep =     r#"rust-crypto-wasm = "^0.2""#;
+    result = build_crate_wasm32(crate_dep).unwrap();
     println!("{} --> {}", crate_dep, result);
 }
 
