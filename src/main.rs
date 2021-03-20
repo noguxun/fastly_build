@@ -1,14 +1,26 @@
 use anyhow::{anyhow, Result};
 use crates_io_api::AsyncClient;
-use hyper::{service::{make_service_fn, service_fn}};
+use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use lazy_static::lazy_static;
 use rand::{distributions::Alphanumeric, rngs::SmallRng, Rng, SeedableRng};
+use sled::Db;
 use std::env;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::process::Command;
 
+lazy_static! {
+    static ref BUILD_DB: Db = sled::open("./welcome-to-sled").unwrap();
+}
+
 async fn hyper_service(req: Request<Body>) -> Result<Response<Body>> {
+    assert_eq!(
+        BUILD_DB.get(&"key").unwrap(),
+        Some(sled::IVec::from("value")),
+    );
+    BUILD_DB.insert("key1", "value1")?;
+
     if req.method() != Method::GET {
         return Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
@@ -44,9 +56,7 @@ async fn hyper_service(req: Request<Body>) -> Result<Response<Body>> {
 
     let body_str = format!(
         include!("result_template.html"),
-        crate_name,
-        version,
-        build_resut
+        crate_name, version, build_resut
     );
 
     let resp = Response::builder()
@@ -133,6 +143,12 @@ async fn get_crate_version(crate_name: &str) -> Result<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+
+    assert_eq!(
+        BUILD_DB.get(&"key").unwrap(),
+        Some(sled::IVec::from("value")),
+    );
+
     let addr = ([0, 0, 0, 0], 8080).into();
     let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(hyper_service)) });
     println!("Starting to serve on http://{}", addr);
@@ -162,8 +178,26 @@ mod tests {
         assert_eq!(build_crate_wasm32(r#"fastly="^0.6""#).unwrap(), true);
     }
 
+    #[test]
+    fn db_work() {
+        // insert and get, similar to std's BTreeMap
+        //let old_value = BUILD_DB.insert("key", "value").unwrap();
+
+        assert_eq!(
+            BUILD_DB.get(&"key").unwrap(),
+            Some(sled::IVec::from("value")),
+        );
+
+        assert_eq!(
+            BUILD_DB.get(&"key1").unwrap(),
+            Some(sled::IVec::from("value1")),
+        );
+    }
+
     #[tokio::test]
     async fn get_crate_version_work() {
         assert_eq!(get_crate_version("fastly").await.unwrap(), "0.7.1");
     }
+
+    
 }
