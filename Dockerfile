@@ -7,3 +7,4 @@ RUN cargo install --path .
 WORKDIR /gu/
 COPY build-test build-test
 RUN chmod 777 /gu
+CMD ["fastlybuild"]

@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "^1.0"
+crates_io_api = "^0.7"
 hyper = { version = "^0.14", features = ["server"] }
 rand = { version = "^0.8", features = ["small_rng"] }
 reqwest = { version = "^0.11", features = ["gzip", "native-tls", "multipart"] }

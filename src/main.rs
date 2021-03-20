@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
-use hyper::service::{make_service_fn, service_fn};
+use crates_io_api::AsyncClient;
+use hyper::{service::{make_service_fn, service_fn}};
 use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use rand::{distributions::Alphanumeric, rngs::SmallRng, Rng, SeedableRng};
 use std::env;
@@ -8,8 +9,6 @@ use std::io::prelude::*;
 use std::process::Command;
 
 async fn hyper_service(req: Request<Body>) -> Result<Response<Body>> {
-    println!("x");
-
     if req.method() != Method::GET {
         return Ok(Response::builder()
             .status(StatusCode::NOT_FOUND)
@@ -18,45 +17,43 @@ async fn hyper_service(req: Request<Body>) -> Result<Response<Body>> {
     }
 
     let path = req.uri().path();
-    let crate_str = urlencoding::decode(&path[1..])?;
-    let body_str = if let Ok(pass) = build_crate_wasm32(&crate_str) {
+    let crate_name = urlencoding::decode(&path[1..])?;
+    let version_result = get_crate_version(&crate_name).await;
+    if version_result.is_err() {
+        let body_str = format!(
+            include!("result_template.html"),
+            crate_name, "NO VERSION", "FAILED"
+        );
+        let resp = Response::builder()
+            .status(StatusCode::OK)
+            .body(Body::from(body_str))?;
+        return Ok(resp);
+    }
+
+    let version = version_result.unwrap();
+    let crate_dep = format!("{} = \"{}\"", crate_name, version);
+    let build_resut = if let Ok(pass) = build_crate_wasm32(&crate_dep) {
         if pass {
-            "true"
+            "OK"
         } else {
-            "false"
+            "FAILED"
         }
     } else {
-        "false"
+        "FAILED"
     };
+
+    let body_str = format!(
+        include!("result_template.html"),
+        crate_name,
+        version,
+        build_resut
+    );
 
     let resp = Response::builder()
         .status(StatusCode::OK)
         .body(Body::from(body_str))?;
 
     return Ok(resp);
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    /*
-    let mut crate_dep = r#"rust-crypto = "^0.3""#;
-    let mut result = build_crate_wasm32(crate_dep).unwrap();
-    println!("{} --> {}", crate_dep, result);
-
-    crate_dep = r#"rust-crypto-wasm = "^0.2""#;
-    result = build_crate_wasm32(crate_dep).unwrap();
-    println!("{} --> {}", crate_dep, result);*/
-
-    let addr = ([0, 0, 0, 0], 8080).into();
-    let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(hyper_service)) });
-    println!("Starting to serve on http://{}", addr);
-
-    let server = Server::bind(&addr).serve(service);
-    if let Err(e) = server.await {
-        println!("server error: {}", e);
-    }
-
-    Ok(())
 }
 
 fn build_crate_wasm32(crate_dep: &str) -> Result<bool> {
@@ -101,7 +98,7 @@ fn build_crate_wasm32(crate_dep: &str) -> Result<bool> {
     }
 
     // kick off the build
-    output = Command::new("cargo").arg("build").output()?;
+    output = Command::new("cargo").arg("check").output()?;
 
     println!(
         "{} \n {} \n {} \n",
@@ -122,6 +119,32 @@ fn build_crate_wasm32(crate_dep: &str) -> Result<bool> {
     Ok(output.status.success())
 }
 
+async fn get_crate_version(crate_name: &str) -> Result<String> {
+    // Instantiate the client.
+    let client = AsyncClient::new(
+        "build-wasm32-check (yesguxun@gmail.com)",
+        std::time::Duration::from_millis(1000),
+    )?;
+
+    let crate_resp = client.get_crate(crate_name).await?;
+
+    return Ok(crate_resp.crate_data.max_version);
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let addr = ([0, 0, 0, 0], 8080).into();
+    let service = make_service_fn(|_| async { Ok::<_, hyper::Error>(service_fn(hyper_service)) });
+    println!("Starting to serve on http://{}", addr);
+
+    let server = Server::bind(&addr).serve(service);
+    if let Err(e) = server.await {
+        println!("server error: {}", e);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -137,5 +160,10 @@ mod tests {
         );
 
         assert_eq!(build_crate_wasm32(r#"fastly="^0.6""#).unwrap(), true);
+    }
+
+    #[tokio::test]
+    async fn get_crate_version_work() {
+        assert_eq!(get_crate_version("fastly").await.unwrap(), "0.7.1");
     }
 }

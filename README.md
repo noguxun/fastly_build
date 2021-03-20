@@ -32,8 +32,21 @@ docker build -t noguxun/fastlybuild:latest -t noguxun/fastlybuild:001 . -f Docke
 
 
 docker pull noguxun/fastlybuild:latest
+
+docker run --network=host  --name fbuild noguxun/fastlybuild
+
+docker exec -it fbuild /bin/bash
+
 docker image list
-docker run --name test1 -it noguxun/fastlybuild
+
+docker container ls -a
+
+docker container stop $(docker container ls -aq)
+docker container rm $(docker container ls -aq)
+
+docker push noguxun/fastlybuild
+docker pull noguxun/fastlybuild
+
 
 
 $ curl "http://localhost:8080/rust-crypto-wasm%20%3D%20%22%5E0.2%22"
@@ -42,3 +55,7 @@ $ curl "http://localhost:8080/rust-crypto%20%3D%20%22%5E0.3%22"
 
 
 https://docs.rs/crates_io_api/0.7.0/crates_io_api/struct.Crate.html
+
+
+
+
