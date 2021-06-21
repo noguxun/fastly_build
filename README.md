@@ -1,4 +1,4 @@
-
+```
 sudo apt-get update
 
 sudo apt-get install \
@@ -24,28 +24,28 @@ sudo usermod -aG docker $USER
 sudo reboot
 
 docker container run hello-world
-
+```
 
 ###################################################
 #### dev
-
+```
 docker build -t noguxun/fastlybuild:latest . -f Dockerfile
 docker run -p 127.0.0.1:8080:8080 -it --rm --name fbuild noguxun/fastlybuild
 docker push noguxun/fastlybuild
-
+```
 ###################################################
-
+```
 docker login
 docker pull noguxun/fastlybuild:latest
 
 docker run --network=host  --name fbuild noguxun/fastlybuild
 docker run -p 127.0.0.1:8080:8080 -it --rm --name fbuild noguxun/fastlybuild
-
+```
 
 
 
 ###################################################
-
+```
 docker exec -it fbuild /bin/bash
 
 docker image list
@@ -57,7 +57,7 @@ docker container rm $(docker container ls -aq)
 
 docker push noguxun/fastlybuild
 docker pull noguxun/fastlybuild
-
+```
 ###################################################
 
 https://rustwasm.xgu.tokyo/rust-crypto-wasm
